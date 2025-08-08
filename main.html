@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusFlow | Modern Pomodoro Timer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- CSS Variables and Base Styles --- */
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #bb86fc;
+            --primary-variant-color: #3700b3;
+            --secondary-color: #03dac6;
+            --on-bg-color: #ffffff;
+            --on-surface-color: #e0e0e0;
+            --on-primary-color: #000000;
+            --disabled-color: #444444;
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --font-family: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Prevent scrollbars on main body */
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--on-bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.5s ease;
+        }
+
+        /* --- Main App Container --- */
+        .app-container {
+            width: 100%;
+            height: 100%;
+            max-width: 600px;
+            max-height: 900px;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        /* --- Stats Header --- */
+        .stats-header {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--surface-color);
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 24px var(--shadow-color);
+        }
+
+        .stats-totals {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .stats-totals h2 {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--on-surface-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .stats-totals p {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--on-bg-color);
+        }
+
+        .stats-graph {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 100px;
+            border-bottom: 1px solid var(--disabled-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .graph-bar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 12%;
+        }
+
+        .graph-bar {
+            width: 100%;
+            background-color: var(--primary-color);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.5s ease-out;
+            height: 0; /* Initial height */
+        }
+        
+        .graph-bar-container .day-label {
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            color: var(--on-surface-color);
+        }
+
+        /* --- Timer Section --- */
+        .timer-section {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .timer-display {
+            font-size: clamp(4rem, 20vw, 8rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            cursor: ns-resize;
+            user-select: none;
+            transition: color 0.3s ease;
+        }
+        
+        .timer-display.stopped {
+            color: var(--on-bg-color);
+        }
+
+        .timer-display.running {
+            color: var(--secondary-color);
+        }
+        
+        .timer-display.paused {
+            color: var(--disabled-color);
+        }
+
+        .session-indicator {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            color: var(--on-surface-color);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .session-indicator.visible {
+            opacity: 1;
+        }
+
+        /* --- Controls --- */
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .control-button {
+            font-family: var(--font-family);
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 0.8rem 1.8rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 120px;
+        }
+
+        #start-pause-button {
+            background-color: var(--primary-color);
+            color: var(--on-primary-color);
+        }
+
+        #start-pause-button:hover {
+            background-color: #d0a3ff;
+        }
+
+        #reset-button {
+            background-color: var(--surface-color);
+            color: var(--on-surface-color);
+        }
+
+        #reset-button:hover {
+            background-color: #333;
+        }
+
+        /* --- Mode Toggle --- */
+        .mode-toggle-container {
+            margin-top: 2rem;
+            display: flex;
+            align-items: center;
+            background-color: var(--surface-color);
+            border-radius: 50px;
+            padding: 0.3rem;
+        }
+
+        .mode-button {
+            font-family: var(--font-family);
+            padding: 0.5rem 1rem;
+            border: none;
+            background-color: transparent;
+            color: var(--on-surface-color);
+            cursor: pointer;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .mode-button.active {
+            background-color: var(--primary-color);
+            color: var(--on-primary-color);
+            box-shadow: 0 4px 12px rgba(187, 134, 252, 0.3);
+        }
+
+        /* --- Full Screen Timer Active State --- */
+        body.timer-active {
+            background-color: var(--bg-color);
+        }
+
+        body.timer-active .app-container {
+            opacity: 0;
+            transform: scale(0.9);
+            pointer-events: none;
+        }
+
+        .fullscreen-timer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: scale(1.1);
+            pointer-events: none;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            z-index: 100;
+        }
+
+        body.timer-active .fullscreen-timer {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        .fullscreen-timer .timer-display {
+            font-size: clamp(6rem, 30vw, 15rem);
+            cursor: default;
+        }
+
+        .fullscreen-timer .session-indicator {
+            font-size: 2rem;
+        }
+        
+        .fullscreen-timer .controls {
+            margin-top: 2rem;
+        }
+
+        /* --- Responsive Design --- */
+        @media (max-width: 600px) {
+            .app-container {
+                padding: 1rem;
+            }
+            .stats-header {
+                margin-bottom: 1rem;
+            }
+            .stats-totals p {
+                font-size: 1.2rem;
+            }
+            .timer-display {
+                font-size: 5rem;
+            }
+            .control-button {
+                padding: 0.7rem 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main application view -->
+    <div class="app-container">
+        <!-- Statistics Header -->
+        <header class="stats-header">
+            <div class="stats-totals">
+                <div class="total-today">
+                    <h2>Today</h2>
+                    <p id="today-total">0m</p>
+                </div>
+                <div class="total-week">
+                    <h2>This Week</h2>
+                    <p id="week-total">0h 0m</p>
+                </div>
+            </div>
+            <div class="stats-graph" id="week-graph">
+                <!-- Graph bars will be injected by JS -->
+            </div>
+        </header>
+
+        <!-- Timer Section -->
+        <main class="timer-section">
+            <div id="timer-display" class="timer-display stopped">25:00</div>
+            <div id="session-indicator" class="session-indicator">Work</div>
+            <div class="controls">
+                <button id="start-pause-button" class="control-button">Start</button>
+                <button id="reset-button" class="control-button">Reset</button>
+            </div>
+            <div class="mode-toggle-container">
+                <button id="pomodoro-mode-button" class="mode-button active">Pomodoro</button>
+                <button id="stopwatch-mode-button" class="mode-button">Stopwatch</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Fullscreen view when timer is active -->
+    <div class="fullscreen-timer">
+        <div id="fullscreen-timer-display" class="timer-display running">25:00</div>
+        <div id="fullscreen-session-indicator" class="session-indicator visible">Work</div>
+        <div class="controls">
+            <button id="fullscreen-start-pause-button" class="control-button">Pause</button>
+            <button id="fullscreen-reset-button" class="control-button">Reset</button>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Element References ---
+        const dom = {
+            body: document.body,
+            todayTotal: document.getElementById('today-total'),
+            weekTotal: document.getElementById('week-total'),
+            weekGraph: document.getElementById('week-graph'),
+            timerDisplay: document.getElementById('timer-display'),
+            sessionIndicator: document.getElementById('session-indicator'),
+            startPauseBtn: document.getElementById('start-pause-button'),
+            resetBtn: document.getElementById('reset-button'),
+            pomodoroModeBtn: document.getElementById('pomodoro-mode-button'),
+            stopwatchModeBtn: document.getElementById('stopwatch-mode-button'),
+            fullscreenTimerDisplay: document.getElementById('fullscreen-timer-display'),
+            fullscreenSessionIndicator: document.getElementById('fullscreen-session-indicator'),
+            fullscreenStartPauseBtn: document.getElementById('fullscreen-start-pause-button'),
+            fullscreenResetBtn: document.getElementById('fullscreen-reset-button'),
+        };
+
+        // --- State Management ---
+        const state = {
+            mode: 'pomodoro', // 'pomodoro' or 'stopwatch'
+            timerState: 'stopped', // 'stopped', 'running', 'paused'
+            sessionType: 'work', // 'work' or 'break'
+            pomodoroDuration: 25 * 60, // in seconds
+            breakDuration: 5 * 60, // in seconds
+            timeRemaining: 25 * 60,
+            timeElapsed: 0,
+            timerInterval: null,
+            history: JSON.parse(localStorage.getItem('pomodoroHistory')) || [],
+        };
+        
+        // --- Audio Context for Notification Sounds ---
+        let audioCtx;
+        const initAudio = () => {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        };
+        
+        const playSound = (type) => {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 0.01);
+            
+            if (type === 'work_end') {
+                oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime + 0.2); // A5
+            } else { // break_end or reset
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+                oscillator.frequency.setValueAtTime(440, audioCtx.currentTime + 0.2); // A4
+            }
+            
+            oscillator.start(audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 1);
+            oscillator.stop(audioCtx.currentTime + 1);
+        };
+
+        // --- Core Timer Logic ---
+        const startTimer = () => {
+            if (state.timerState === 'running') return;
+            initAudio(); // Initialize audio on first interaction
+            
+            state.timerState = 'running';
+            dom.body.classList.add('timer-active');
+            updateUI();
+
+            state.timerInterval = setInterval(() => {
+                if (state.mode === 'pomodoro') {
+                    state.timeRemaining--;
+                    if (state.timeRemaining < 0) {
+                        clearInterval(state.timerInterval);
+                        handleSessionEnd();
+                        return;
+                    }
+                } else {
+                    state.timeElapsed++;
+                }
+                updateUI();
+            }, 1000);
+        };
+
+        const pauseTimer = () => {
+            if (state.timerState !== 'running') return;
+            state.timerState = 'paused';
+            clearInterval(state.timerInterval);
+            dom.body.classList.remove('timer-active');
+            updateUI();
+        };
+
+        const resetTimer = () => {
+            clearInterval(state.timerInterval);
+            const wasRunning = state.timerState === 'running';
+            
+            if (state.mode === 'stopwatch' && state.timeElapsed > 0) {
+                logSession('work', state.timeElapsed);
+            }
+            
+            state.timerState = 'stopped';
+            state.sessionType = 'work';
+            state.timeRemaining = state.pomodoroDuration;
+            state.timeElapsed = 0;
+            
+            dom.body.classList.remove('timer-active');
+            updateUI();
+            updateStats();
+            
+            if(wasRunning) playSound('reset');
+        };
+
+        const handleSessionEnd = () => {
+            playSound('work_end');
+            if (state.sessionType === 'work') {
+                logSession('work', state.pomodoroDuration);
+                state.sessionType = 'break';
+                // Calculate break time: 5 minutes for every 25 minutes of work
+                const workBlocks = Math.floor(state.pomodoroDuration / (25 * 60));
+                state.breakDuration = Math.max(5 * 60, workBlocks * 5 * 60);
+                state.timeRemaining = state.breakDuration;
+                startTimer(); // Auto-start break
+            } else { // Break session ended
+                logSession('break', state.breakDuration);
+                state.sessionType = 'work';
+                state.timeRemaining = state.pomodoroDuration;
+                state.timerState = 'stopped';
+                dom.body.classList.remove('timer-active');
+            }
+            updateUI();
+            updateStats();
+        };
+
+        // --- UI Update Functions ---
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        };
+
+        const updateUI = () => {
+            // Determine current time display value
+            const displayTime = state.mode === 'pomodoro' ? state.timeRemaining : state.timeElapsed;
+            const formattedTime = formatTime(displayTime);
+
+            // Update main and fullscreen displays
+            dom.timerDisplay.textContent = formattedTime;
+            dom.fullscreenTimerDisplay.textContent = formattedTime;
+
+            // Update button text
+            const buttonText = state.timerState === 'running' ? 'Pause' : 'Start';
+            dom.startPauseBtn.textContent = buttonText;
+            dom.fullscreenStartPauseBtn.textContent = buttonText;
+
+            // Update timer display class for color
+            const timerClass = state.timerState;
+            dom.timerDisplay.className = `timer-display ${timerClass}`;
+            dom.fullscreenTimerDisplay.className = `timer-display ${timerClass}`;
+
+            // Update session indicators
+            const sessionText = state.sessionType.charAt(0).toUpperCase() + state.sessionType.slice(1);
+            dom.sessionIndicator.textContent = sessionText;
+            dom.fullscreenSessionIndicator.textContent = sessionText;
+            dom.sessionIndicator.classList.toggle('visible', state.mode === 'pomodoro');
+            dom.fullscreenSessionIndicator.classList.toggle('visible', state.mode === 'pomodoro');
+            
+            // Update mode buttons
+            dom.pomodoroModeBtn.classList.toggle('active', state.mode === 'pomodoro');
+            dom.stopwatchModeBtn.classList.toggle('active', state.mode === 'stopwatch');
+        };
+
+        // --- Statistics and History ---
+        const logSession = (type, duration) => {
+            state.history.push({
+                type: type,
+                duration: duration,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('pomodoroHistory', JSON.stringify(state.history));
+        };
+        
+        const formatTotalTime = (totalSeconds) => {
+            if (totalSeconds < 3600) {
+                return `${Math.round(totalSeconds / 60)}m`;
+            }
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.round((totalSeconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        };
+
+        const updateStats = () => {
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const weekStart = new Date(now.setDate(now.getDate() - now.getDay())).setHours(0, 0, 0, 0);
+
+            let todaySeconds = 0;
+            let weekSeconds = 0;
+            const weekDailyTotals = [0, 0, 0, 0, 0, 0, 0]; // Sun - Sat
+
+            state.history.forEach(session => {
+                if (session.type === 'work') {
+                    const sessionDate = new Date(session.timestamp);
+                    const sessionTime = sessionDate.getTime();
+
+                    if (sessionTime >= todayStart) {
+                        todaySeconds += session.duration;
+                    }
+                    if (sessionTime >= weekStart) {
+                        weekSeconds += session.duration;
+                        weekDailyTotals[sessionDate.getDay()] += session.duration;
+                    }
+                }
+            });
+
+            dom.todayTotal.textContent = formatTotalTime(todaySeconds);
+            dom.weekTotal.textContent = formatTotalTime(weekSeconds);
+            
+            renderWeekGraph(weekDailyTotals);
+        };
+        
+        const renderWeekGraph = (dailyTotals) => {
+            dom.weekGraph.innerHTML = '';
+            const maxSeconds = Math.max(...dailyTotals, 1); // Avoid division by zero
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            
+            days.forEach((day, index) => {
+                const container = document.createElement('div');
+                container.className = 'graph-bar-container';
+                
+                const bar = document.createElement('div');
+                bar.className = 'graph-bar';
+                const heightPercent = (dailyTotals[index] / maxSeconds) * 100;
+                bar.style.height = `${heightPercent}%`;
+                
+                const label = document.createElement('span');
+                label.className = 'day-label';
+                label.textContent = day;
+                
+                container.appendChild(bar);
+                container.appendChild(label);
+                dom.weekGraph.appendChild(container);
+            });
+        };
+
+        // --- Event Listeners ---
+        const handleStartPause = () => {
+            if (state.timerState === 'running') {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        };
+
+        dom.startPauseBtn.addEventListener('click', handleStartPause);
+        dom.fullscreenStartPauseBtn.addEventListener('click', handleStartPause);
+
+        const handleReset = () => {
+            if (state.timerState !== 'stopped') {
+                resetTimer();
+            }
+        };
+        
+        dom.resetBtn.addEventListener('click', handleReset);
+        dom.fullscreenResetBtn.addEventListener('click', handleReset);
+
+        dom.pomodoroModeBtn.addEventListener('click', () => {
+            if (state.mode === 'pomodoro' || state.timerState !== 'stopped') return;
+            state.mode = 'pomodoro';
+            resetTimer(); // Reset to apply mode change
+        });
+
+        dom.stopwatchModeBtn.addEventListener('click', () => {
+            if (state.mode === 'stopwatch' || state.timerState !== 'stopped') return;
+            state.mode = 'stopwatch';
+            resetTimer(); // Reset to apply mode change
+        });
+        
+        // Time adjustment with mouse wheel
+        dom.timerDisplay.addEventListener('wheel', (e) => {
+            if (state.timerState !== 'stopped' || state.mode !== 'pomodoro') return;
+            e.preventDefault();
+            
+            const increment = 15; // 15 seconds
+            if (e.deltaY < 0) {
+                // Scroll up
+                state.pomodoroDuration += increment;
+            } else {
+                // Scroll down
+                state.pomodoroDuration = Math.max(increment, state.pomodoroDuration - increment);
+            }
+            
+            state.timeRemaining = state.pomodoroDuration;
+            updateUI();
+        });
+
+        // --- Initial Setup ---
+        const initialize = () => {
+            updateUI();
+            updateStats();
+        };
+
+        initialize();
+    });
+    </script>
+</body>
+</html>
